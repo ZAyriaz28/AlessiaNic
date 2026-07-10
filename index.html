@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="favicon_io/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon_io/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon_io/favicon-16x16.png">
+    <link rel="manifest" href="favicon_io/site.webmanifest">
+    <meta name="theme-color" content="#fef5e7"> 
+    <title>Tienda Privada SHEIN - Alessia Nic</title>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css"> 
+    
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script defer src="script.js"></script>
+</head>
+
+<body class="d-flex flex-column min-vh-100 p-0">
+    
+    <div id="loader-wrapper">
+        <div class="loader-content">
+            <div class="logo-circle loading-logo mb-3">
+                <i class="bi bi-bag-heart-fill text-white fs-1"></i>
+            </div>
+            <h1 class="cursive-brand text-dark">Alessia Nic</h1>
+            <div class="spinner-border text-primary-dark mt-3" role="status"></div>
+        </div>
+    </div>
+
+    <header class="app-header text-center pb-2 pt-4 px-3">
+        <div class="d-flex align-items-center justify-content-center flex-column">
+            <div class="logo-circle shadow-sm mb-2">
+                <i class="bi bi-bag-heart-fill fs-1 text-white"></i>
+            </div>
+            <h1 class="fw-bold fs-4 text-dark mb-0 tracking-tight cursive-brand">Alessia Nic</h1>
+            <p class="text-muted small fw-semibold">Gestión de Pedidos Shein</p>
+        </div>
+    </header>
+
+    <div class="container mt-2 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="small text-muted fw-semibold">
+            <i class="bi bi-person-circle me-1"></i> <span id="usuarioActivo">—</span>
+            <a href="#" id="logoutBtn" class="ms-2 text-decoration-none text-danger fw-bold">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </a>
+        </div>
+        <a href="admin.html" class="btn btn-app-primary rounded-pill px-4 shadow-sm">
+            <i class="bi bi-shield-lock-fill me-2"></i> Administrar Pedidos
+        </a>
+    </div>
+
+    <main class="container flex-grow-1 px-3 px-md-4">
+        <section class="card app-card shadow-sm mb-4 border-0">
+            <div class="card-body p-4">
+                <h2 class="h5 fw-bold text-primary mb-4 d-flex align-items-center">
+                    <div class="icon-box me-3"><i class="bi bi-plus-lg"></i></div>
+                    Nuevo Lote
+                </h2>
+                
+                <form id="orderForm">
+                    <div class="mb-3">
+                        <label for="articulo" class="form-label text-secondary fw-bold small mb-1">Nombre del Artículo</label>
+                        <div class="input-group app-input-group">
+                            <span class="input-group-text"><i class="bi bi-tag text-muted"></i></span>
+                            <input type="text" id="articulo" required placeholder="Ej. Camisa, Labial" class="form-control form-control-lg">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-4">
+                            <label for="precioTotalUSD" class="form-label text-secondary fw-bold small mb-1">Costo Lote Shein</label>
+                            <div class="input-group app-input-group">
+                                <span class="input-group-text fw-bold text-success">$</span>
+                                <input type="number" id="precioTotalUSD" step="0.01" min="0" required placeholder="0.00" class="form-control form-control-lg">
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <label for="costoEnvioUSD" class="form-label text-secondary fw-bold small mb-1">Envío ($)</label>
+                            <div class="input-group app-input-group">
+                                <span class="input-group-text"><i class="bi bi-truck text-muted"></i></span>
+                                <input type="number" id="costoEnvioUSD" step="0.01" min="0" required placeholder="0.00" class="form-control form-control-lg">
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <label for="cantUnidades" class="form-label text-secondary fw-bold small mb-1">Unidades</label>
+                            <div class="input-group app-input-group">
+                                <span class="input-group-text"><i class="bi bi-boxes text-muted"></i></span>
+                                <input type="number" id="cantUnidades" value="1" min="1" required class="form-control form-control-lg text-center">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="highlight-box rounded-4 p-3 mb-4 mt-2">
+                        <label for="precioVentaC" class="form-label fw-bold text-primary mb-1">Precio de Venta (Unidad)</label>
+                        <div class="input-group app-input-group input-group-lg mb-2 shadow-sm">
+                            <span class="input-group-text fw-bold text-primary bg-white">C$</span>
+                            <input type="number" id="precioVentaC" step="0.01" min="0" required placeholder="0.00" class="form-control fw-bold border-start-0 text-dark">
+                        </div>
+                        
+                        <div id="feedbackGanancia" class="live-feedback rounded-3 p-3 mt-3 text-center small fw-bold">
+                            Ingresa los datos para ver la ganancia.
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-app-primary w-100 btn-lg shadow rounded-pill fw-bold d-flex align-items-center justify-content-center py-3">
+                        <i class="bi bi-floppy-fill me-2 fs-5"></i> GUARDAR ARTÍCULO
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card app-card shadow-sm mb-5 border-0">
+            <div class="card-body p-0 pt-4">
+                <h2 id="listTitle" class="h5 fw-bold text-dark px-4 mb-3 d-flex align-items-center">
+                    <i class="bi bi-card-list me-2 text-primary"></i> Pedidos Recientes
+                </h2>
+                <div id="tableContainer" class="table-responsive app-table-wrapper px-3 pb-3">
+                    <p class="text-muted text-center p-4 bg-light rounded-4 small fw-medium mx-3">No hay datos registrados aún.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <nav class="mobile-bottom-bar shadow-lg">
+        <div class="d-flex justify-content-around align-items-center h-100">
+            <a href="index.html" class="nav-item active text-center text-decoration-none">
+                <i class="bi bi-house-door-fill fs-4 d-block mb-1"></i>
+                <span class="small fw-bold">Inicio</span>
+            </a>
+            <a href="admin.html" class="nav-item text-center text-decoration-none text-muted">
+                <i class="bi bi-shield-lock fs-4 d-block mb-1"></i>
+                <span class="small fw-bold">Admin</span>
+            </a>
+        </div>
+    </nav>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
