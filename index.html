@@ -11,9 +11,9 @@
     <link rel="icon" type="image/png" sizes="32x32" href="favicon_io/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon_io/favicon-16x16.png">
     <link rel="manifest" href="favicon_io/site.webmanifest">
-    <meta name="theme-color" content="#fef5e7"> 
+    <meta name="theme-color" content="#FCF8F5"> 
     <title>Tienda Privada SHEIN - Alessia Nic</title>
-    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;1,600&family=Manrope:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css"> 
     
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -59,73 +59,90 @@
         <section class="card app-card shadow-sm mb-4 border-0">
             <div class="card-body p-4">
                 <h2 class="h5 fw-bold text-primary mb-4 d-flex align-items-center">
-                    <div class="icon-box me-3"><i class="bi bi-plus-lg"></i></div>
-                    Nuevo Lote
+                    <div class="icon-box me-3"><i class="bi bi-box-seam"></i></div>
+                    Nuevo Pedido / Cargamento
                 </h2>
-                
-                <form id="orderForm">
-                    <div class="mb-3">
-                        <label for="articulo" class="form-label text-secondary fw-bold small mb-1">Nombre del Artículo</label>
-                        <div class="input-group app-input-group">
-                            <span class="input-group-text"><i class="bi bi-tag text-muted"></i></span>
-                            <input type="text" id="articulo" required placeholder="Ej. Camisa, Labial" class="form-control form-control-lg">
-                        </div>
-                    </div>
 
+                <form id="pedidoForm">
                     <div class="row g-3 mb-3">
-                        <div class="col-12 col-md-4">
-                            <label for="precioTotalUSD" class="form-label text-secondary fw-bold small mb-1">Costo Lote Shein</label>
+                        <div class="col-12 col-md-5">
+                            <label for="proveedor" class="form-label text-secondary fw-bold small mb-1">Proveedor</label>
                             <div class="input-group app-input-group">
-                                <span class="input-group-text fw-bold text-success">$</span>
-                                <input type="number" id="precioTotalUSD" step="0.01" min="0" required placeholder="0.00" class="form-control form-control-lg">
+                                <span class="input-group-text"><i class="bi bi-shop text-muted"></i></span>
+                                <input type="text" id="proveedor" required value="Shein" class="form-control form-control-lg">
                             </div>
                         </div>
                         <div class="col-6 col-md-4">
-                            <label for="costoEnvioUSD" class="form-label text-secondary fw-bold small mb-1">Envío ($)</label>
-                            <div class="input-group app-input-group">
-                                <span class="input-group-text"><i class="bi bi-truck text-muted"></i></span>
-                                <input type="number" id="costoEnvioUSD" step="0.01" min="0" required placeholder="0.00" class="form-control form-control-lg">
-                            </div>
+                            <label for="fechaPedido" class="form-label text-secondary fw-bold small mb-1">Fecha</label>
+                            <input type="date" id="fechaPedido" required class="form-control form-control-lg">
                         </div>
-                        <div class="col-6 col-md-4">
-                            <label for="cantUnidades" class="form-label text-secondary fw-bold small mb-1">Unidades</label>
+                        <div class="col-6 col-md-3">
+                            <label for="costoEnvio" class="form-label text-secondary fw-bold small mb-1">Envío (C$)</label>
                             <div class="input-group app-input-group">
-                                <span class="input-group-text"><i class="bi bi-boxes text-muted"></i></span>
-                                <input type="number" id="cantUnidades" value="1" min="1" required class="form-control form-control-lg text-center">
+                                <span class="input-group-text">C$</span>
+                                <input type="number" id="costoEnvio" step="0.01" min="0" value="0" class="form-control form-control-lg">
                             </div>
                         </div>
                     </div>
 
-                    <div class="highlight-box rounded-4 p-3 mb-4 mt-2">
-                        <label for="precioVentaC" class="form-label fw-bold text-primary mb-1">Precio de Venta (Unidad)</label>
-                        <div class="input-group app-input-group input-group-lg mb-2 shadow-sm">
-                            <span class="input-group-text fw-bold text-primary bg-white">C$</span>
-                            <input type="number" id="precioVentaC" step="0.01" min="0" required placeholder="0.00" class="form-control fw-bold border-start-0 text-dark">
-                        </div>
-                        
-                        <div id="feedbackGanancia" class="live-feedback rounded-3 p-3 mt-3 text-center small fw-bold">
-                            Ingresa los datos para ver la ganancia.
-                        </div>
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label text-secondary fw-bold small mb-1">Observaciones (opcional)</label>
+                        <textarea id="observaciones" class="form-control" rows="2" placeholder="Ej. Llegó con retraso, un producto dañado, etc."></textarea>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h3 class="h6 fw-bold text-dark mb-3 d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-boxes me-2 text-primary"></i>Productos del Pedido</span>
+                        <button type="button" id="agregarProductoBtn" class="btn btn-sm btn-outline-primary rounded-pill">
+                            <i class="bi bi-plus-lg"></i> Agregar producto
+                        </button>
+                    </h3>
+
+                    <div id="productosContainer"></div>
+
+                    <div class="highlight-box rounded-4 p-3 my-4 text-center">
+                        <span class="fw-bold text-primary">Total del Pedido: </span>
+                        <span id="totalPedido" class="fw-bold fs-5 text-dark">C$ 0.00</span>
                     </div>
 
                     <button type="submit" class="btn btn-app-primary w-100 btn-lg shadow rounded-pill fw-bold d-flex align-items-center justify-content-center py-3">
-                        <i class="bi bi-floppy-fill me-2 fs-5"></i> GUARDAR ARTÍCULO
+                        <i class="bi bi-floppy-fill me-2 fs-5"></i> GUARDAR PEDIDO
                     </button>
                 </form>
             </div>
         </section>
+    </main>
 
-        <section class="card app-card shadow-sm mb-5 border-0">
-            <div class="card-body p-0 pt-4">
-                <h2 id="listTitle" class="h5 fw-bold text-dark px-4 mb-3 d-flex align-items-center">
-                    <i class="bi bi-card-list me-2 text-primary"></i> Pedidos Recientes
-                </h2>
-                <div id="tableContainer" class="table-responsive app-table-wrapper px-3 pb-3">
-                    <p class="text-muted text-center p-4 bg-light rounded-4 small fw-medium mx-3">No hay datos registrados aún.</p>
+    <template id="productoRowTemplate">
+        <div class="producto-row card border-0 bg-light rounded-4 p-3 mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-secondary fw-bold mb-1">Producto</label>
+                    <input type="text" class="form-control prod-nombre" placeholder="Ej. Camisa Negra" required>
+                </div>
+                <div class="col-4 col-md-2">
+                    <label class="form-label small text-secondary fw-bold mb-1">Cantidad</label>
+                    <input type="number" class="form-control prod-cantidad" min="1" value="1" required>
+                </div>
+                <div class="col-4 col-md-2">
+                    <label class="form-label small text-secondary fw-bold mb-1">Costo Unit. (C$)</label>
+                    <input type="number" class="form-control prod-costo" step="0.01" min="0" required>
+                </div>
+                <div class="col-4 col-md-2">
+                    <label class="form-label small text-secondary fw-bold mb-1">Precio Venta (C$)</label>
+                    <input type="number" class="form-control prod-precio" step="0.01" min="0" required>
+                </div>
+                <div class="col-10 col-md-1">
+                    <label class="form-label small text-secondary fw-bold mb-1 d-none d-md-block">&nbsp;</label>
+                    <div class="form-control-plaintext fw-bold text-center prod-subtotal">C$ 0.00</div>
+                </div>
+                <div class="col-2 col-md-1 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-circle eliminar-producto-btn"><i class="bi bi-trash"></i></button>
                 </div>
             </div>
-        </section>
-    </main>
+        </div>
+    </template>
 
     <nav class="mobile-bottom-bar shadow-lg">
         <div class="d-flex justify-content-around align-items-center h-100">

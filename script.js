@@ -1,9 +1,8 @@
 // ===============================================================
 // XENON-WEB: LÓGICA DE NEGOCIO Y APLICACIÓN
-// Conectado a la API (MySQL) con sesión multiusuario (login)
+// Modelo: Pedidos (Cargamentos) -> Productos -> Ventas
 // ===============================================================
 
-// Ajusta esto si tu backend corre en otro puerto o dominio de Laragon
 const API_BASE_URL = 'http://localhost:4000/api';
 
 const TOKEN_KEY = 'authToken';
@@ -26,7 +25,6 @@ const cerrarSesion = () => {
     window.location.href = 'login.html';
 };
 
-// Páginas que requieren estar logueado. login.html queda fuera de esta lista.
 const PAGINAS_PROTEGIDAS = ['index.html', 'admin.html', ''];
 
 const protegerPagina = () => {
@@ -47,7 +45,7 @@ const pintarUsuarioActivo = () => {
     if (logoutBtn) logoutBtn.addEventListener('click', (e) => { e.preventDefault(); cerrarSesion(); });
 };
 
-// --- HELPER: peticiones a la API con manejo de errores centralizado ---
+// --- HELPER: peticiones a la API ---
 const apiFetch = async (path, options = {}) => {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
     const token = getToken();
@@ -57,7 +55,6 @@ const apiFetch = async (path, options = {}) => {
     const data = await res.json().catch(() => ({}));
 
     if (res.status === 401) {
-        // Sesión inválida o expirada: manda de vuelta al login
         cerrarSesion();
         throw new Error('Tu sesión expiró, inicia sesión de nuevo.');
     }
@@ -67,30 +64,13 @@ const apiFetch = async (path, options = {}) => {
     return data;
 };
 
-// --- FUNCIÓN DE CÁLCULO (solo vista previa; el servidor recalcula al guardar) ---
-const calcularValoresFinancieros = (precioTotalUSD, costoEnvioUSD, cantUnidades, precioVentaC, tasa) => {
-    const costoTotalLoteUSD = precioTotalUSD + costoEnvioUSD;
-    const costoUnidadUSD = cantUnidades > 0 ? costoTotalLoteUSD / cantUnidades : 0;
-    const costoUnidadC = costoUnidadUSD * tasa;
-    const gananciaUnidadC = precioVentaC - costoUnidadC;
-    const gananciaTotalC = gananciaUnidadC * cantUnidades;
-
-    return {
-        gastosTotalesUSD: parseFloat(costoTotalLoteUSD.toFixed(2)),
-        costoUnidadC: parseFloat(costoUnidadC.toFixed(2)),
-        gananciaUnidadC: parseFloat(gananciaUnidadC.toFixed(2)),
-        gananciaTotalC: parseFloat(gananciaTotalC.toFixed(2))
-    };
-};
-
-const TASA_REFERENCIA = 36.6243;
+const money = (n) => `C$ ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // --- LOGIN ---
 const initializeLoginPage = () => {
     const loginForm = document.getElementById('loginForm');
     if (!loginForm) return;
 
-    // Si ya hay sesión activa, no tiene sentido ver el login de nuevo
     if (isLoggedIn()) {
         window.location.href = 'index.html';
         return;
@@ -118,147 +98,259 @@ const initializeLoginPage = () => {
     });
 };
 
-// --- ELIMINAR ARTÍCULO ---
-const deleteOrder = async (id) => {
+// ===============================================================
+// PÁGINA: index.html - Crear Pedido/Cargamento con varios productos
+// ===============================================================
+const crearFilaProducto = () => {
+    const template = document.getElementById('productoRowTemplate');
+    const container = document.getElementById('productosContainer');
+    const clone = template.content.cloneNode(true);
+    const row = clone.querySelector('.producto-row');
+
+    const actualizarSubtotal = () => {
+        const cantidad = parseFloat(row.querySelector('.prod-cantidad').value) || 0;
+        const costo = parseFloat(row.querySelector('.prod-costo').value) || 0;
+        row.querySelector('.prod-subtotal').textContent = money(cantidad * costo);
+        actualizarTotalPedido();
+    };
+
+    row.querySelectorAll('.prod-cantidad, .prod-costo').forEach(input => input.addEventListener('input', actualizarSubtotal));
+    row.querySelector('.eliminar-producto-btn').addEventListener('click', () => {
+        row.remove();
+        actualizarTotalPedido();
+    });
+
+    container.appendChild(clone);
+};
+
+const actualizarTotalPedido = () => {
+    const filas = document.querySelectorAll('.producto-row');
+    let total = 0;
+    filas.forEach(row => {
+        const cantidad = parseFloat(row.querySelector('.prod-cantidad').value) || 0;
+        const costo = parseFloat(row.querySelector('.prod-costo').value) || 0;
+        total += cantidad * costo;
+    });
+    const envio = parseFloat(document.getElementById('costoEnvio')?.value) || 0;
+    const totalEl = document.getElementById('totalPedido');
+    if (totalEl) totalEl.textContent = money(total + envio);
+};
+
+const initializeIndexPage = () => {
+    const pedidoForm = document.getElementById('pedidoForm');
+    if (!pedidoForm) return;
+
+    document.getElementById('fechaPedido').value = new Date().toISOString().slice(0, 10);
+    crearFilaProducto();
+
+    document.getElementById('agregarProductoBtn').addEventListener('click', crearFilaProducto);
+    document.getElementById('costoEnvio').addEventListener('input', actualizarTotalPedido);
+
+    pedidoForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const filas = document.querySelectorAll('.producto-row');
+        if (filas.length === 0) {
+            return Swal.fire('Falta información', 'Agrega al menos un producto al pedido.', 'warning');
+        }
+
+        const productos = Array.from(filas).map(row => ({
+            nombre: row.querySelector('.prod-nombre').value,
+            cantidad: parseInt(row.querySelector('.prod-cantidad').value),
+            costo_unitario_cordoba: parseFloat(row.querySelector('.prod-costo').value),
+            precio_venta_cordoba: parseFloat(row.querySelector('.prod-precio').value)
+        }));
+
+        const payload = {
+            proveedor: document.getElementById('proveedor').value,
+            fecha_pedido: document.getElementById('fechaPedido').value,
+            costo_envio_cordoba: parseFloat(document.getElementById('costoEnvio').value) || 0,
+            observaciones: document.getElementById('observaciones').value,
+            productos
+        };
+
+        try {
+            await apiFetch('/pedidos', { method: 'POST', body: JSON.stringify(payload) });
+            Swal.fire('Guardado', 'Pedido registrado correctamente', 'success');
+            pedidoForm.reset();
+            document.getElementById('fechaPedido').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('productosContainer').innerHTML = '';
+            crearFilaProducto();
+            actualizarTotalPedido();
+        } catch (err) {
+            Swal.fire('Error', err.message, 'error');
+        }
+    });
+};
+
+// ===============================================================
+// PÁGINA: admin.html - Pedidos, reportes y ventas
+// ===============================================================
+let ultimosPedidos = [];
+
+const pintarPedidoCard = (pedido) => {
+    const template = document.getElementById('pedidoCardTemplate');
+    const clone = template.content.cloneNode(true);
+    const card = clone.querySelector('.pedido-card');
+
+    card.dataset.pedidoId = pedido.id;
+    card.querySelector('.pedido-numero').textContent = `#${String(pedido.id).padStart(3, '0')}`;
+    card.querySelector('.pedido-proveedor').textContent = pedido.proveedor;
+    card.querySelector('.pedido-fecha').textContent =
+        `${new Date(pedido.fecha_pedido).toLocaleDateString('es-NI')} · ${pedido.cantidad_productos} producto(s) · agregado por ${pedido.creado_por_usuario}`;
+
+    const utilidadEl = card.querySelector('.pedido-utilidad');
+    utilidadEl.textContent = money(pedido.utilidad_neta);
+    utilidadEl.classList.add(pedido.utilidad_neta >= 0 ? 'text-success' : 'text-danger');
+
+    card.querySelector('.pedido-porcentaje').textContent = `(${pedido.porcentaje_ganancia}%)`;
+    card.querySelector('.pedido-inversion').textContent = money(pedido.inversion_inicial);
+    card.querySelector('.pedido-ingresos').textContent = money(pedido.ingresos_generados);
+    card.querySelector('.pedido-vendidos').textContent = pedido.cantidad_vendida_total;
+    card.querySelector('.pedido-disponibles').textContent = pedido.cantidad_disponible_total;
+
+    const detalleDiv = card.querySelector('.pedido-detalle');
+    card.querySelector('.pedido-header').addEventListener('click', async () => {
+        const abierto = detalleDiv.style.display !== 'none';
+        if (abierto) {
+            detalleDiv.style.display = 'none';
+            return;
+        }
+        detalleDiv.style.display = 'block';
+        detalleDiv.innerHTML = '<p class="text-center text-muted small py-3">Cargando productos...</p>';
+        await cargarDetallePedido(pedido.id, detalleDiv);
+    });
+
+    return card;
+};
+
+const cargarDetallePedido = async (pedidoId, detalleDiv) => {
+    try {
+        const detalle = await apiFetch(`/pedidos/${pedidoId}`);
+        detalleDiv.innerHTML = '';
+
+        if (detalle.observaciones) {
+            const obs = document.createElement('p');
+            obs.className = 'small text-muted fst-italic mb-3';
+            obs.innerHTML = `<i class="bi bi-chat-left-text me-1"></i> ${detalle.observaciones}`;
+            detalleDiv.appendChild(obs);
+        }
+
+        const template = document.getElementById('productoDetalleTemplate');
+        detalle.productos.forEach(prod => {
+            const clone = template.content.cloneNode(true);
+            clone.querySelector('.prod-nombre').textContent = prod.nombre;
+            clone.querySelector('.prod-costo').textContent = money(prod.costo_unitario_cordoba);
+            clone.querySelector('.prod-precio').textContent = money(prod.precio_venta_cordoba);
+            clone.querySelector('.prod-ganancia').textContent = money(prod.ganancia_unidad);
+            clone.querySelector('.prod-margen').textContent = `${prod.margen_porcentaje}%`;
+            clone.querySelector('.prod-vendidas').textContent = prod.cantidad_vendida;
+            clone.querySelector('.prod-disponibles').textContent = prod.cantidad_disponible;
+
+            const ventaBtn = clone.querySelector('.registrar-venta-btn');
+            if (prod.cantidad_disponible <= 0) {
+                ventaBtn.disabled = true;
+                ventaBtn.textContent = 'Agotado';
+            } else {
+                ventaBtn.addEventListener('click', () => abrirModalVenta(prod, pedidoId, detalleDiv));
+            }
+            detalleDiv.appendChild(clone);
+        });
+
+        if (isAdmin()) {
+            const borrarBtn = document.createElement('button');
+            borrarBtn.className = 'btn btn-outline-danger btn-sm rounded-pill mt-2';
+            borrarBtn.innerHTML = '<i class="bi bi-trash"></i> Eliminar Pedido Completo';
+            borrarBtn.addEventListener('click', () => eliminarPedido(pedidoId));
+            detalleDiv.appendChild(borrarBtn);
+        }
+    } catch (err) {
+        detalleDiv.innerHTML = `<p class="text-danger small text-center">${err.message}</p>`;
+    }
+};
+
+const abrirModalVenta = async (producto, pedidoId, detalleDiv) => {
+    const { value: formValues } = await Swal.fire({
+        title: `Vender: ${producto.nombre}`,
+        html: `
+            <input id="swal-cantidad" type="number" min="1" max="${producto.cantidad_disponible}" value="1" class="swal2-input" placeholder="Cantidad (disp: ${producto.cantidad_disponible})">
+            <input id="swal-precio" type="number" step="0.01" value="${producto.precio_venta_cordoba}" class="swal2-input" placeholder="Precio de venta unitario (C$)">
+            <input id="swal-cliente" type="text" class="swal2-input" placeholder="Cliente (opcional)">
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Registrar Venta',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => [
+            document.getElementById('swal-cantidad').value,
+            document.getElementById('swal-precio').value,
+            document.getElementById('swal-cliente').value
+        ]
+    });
+    if (!formValues) return;
+
+    const [cantidad, precio, cliente] = formValues;
+    try {
+        await apiFetch(`/pedidos/productos/${producto.id}/venta`, {
+            method: 'POST',
+            body: JSON.stringify({
+                cantidad: parseInt(cantidad),
+                precio_venta_unitario_cordoba: parseFloat(precio),
+                cliente: cliente || null
+            })
+        });
+        Swal.fire({ icon: 'success', title: 'Venta registrada', timer: 1400, showConfirmButton: false });
+        await cargarDetallePedido(pedidoId, detalleDiv);
+        cargarYRenderizarPedidos(); // refresca totales del card
+    } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+    }
+};
+
+const eliminarPedido = async (pedidoId) => {
     const result = await Swal.fire({
-        title: '¿Estás seguro?',
-        html: `Vas a eliminar el artículo N° <b>${id}</b>.`,
+        title: '¿Eliminar este pedido?',
+        text: 'Se borrarán también todos sus productos y ventas. Esta acción no se puede deshacer.',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Sí, Eliminar',
+        confirmButtonText: 'Sí, eliminar todo',
         cancelButtonText: 'Cancelar'
     });
     if (!result.isConfirmed) return;
 
     try {
-        await apiFetch(`/articulos/${id}`, { method: 'DELETE' });
-        Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1500, showConfirmButton: false });
-        cargarYRenderizarAdmin();
+        await apiFetch(`/pedidos/${pedidoId}`, { method: 'DELETE' });
+        Swal.fire({ icon: 'success', title: 'Pedido eliminado', timer: 1400, showConfirmButton: false });
+        cargarYRenderizarPedidos();
     } catch (err) {
         Swal.fire('Error', err.message, 'error');
     }
 };
-window.deleteOrder = deleteOrder;
 
-// --- RENDERIZACIÓN DE LA TABLA ---
-const renderTable = (data, containerId, isEditable = false) => {
-    const container = document.getElementById(containerId);
+const cargarYRenderizarPedidos = async () => {
+    const container = document.getElementById('pedidosContainer');
     if (!container) return;
 
-    if (!data || data.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center p-4 bg-light rounded-4 small fw-medium mx-3">No hay datos registrados aún.</p>';
-        return;
-    }
-
-    const displayHeaders = [
-        { key: 'id', name: 'Nº' }, { key: 'nombre', name: 'Artículo' }, { key: 'unidad_medida', name: 'U/M' },
-        { key: 'costo_shein_usd', name: 'Shein ($)', prefix: '$ ' }, { key: 'costo_envio_usd', name: 'Envío ($)', prefix: '$ ' },
-        { key: 'gastos_totales_usd', name: 'Total ($)', prefix: '$ ' }, { key: 'unidades', name: 'Cant.' },
-        { key: 'costo_unidad_cordoba', name: 'Costo (C$)', prefix: 'C$ ' }, { key: 'precio_venta_cordoba', name: 'Venta (C$)', prefix: 'C$ ' },
-        { key: 'ganancia_total_cordoba', name: 'Ganancia (C$)', prefix: 'C$ ' },
-        { key: 'creado_por_usuario', name: 'Agregado por' }
-    ];
-
-    let html = '<div class="table-responsive"><table class="table table-striped table-hover"><thead><tr>';
-    displayHeaders.forEach(h => html += `<th>${h.name}</th>`);
-    if (isEditable) html += '<th>Acción</th>';
-    html += '</tr></thead><tbody>';
-
-    data.forEach(order => {
-        html += '<tr>';
-        displayHeaders.forEach(h => {
-            let val = order[h.key];
-            if (typeof val === 'number' && h.prefix) val = h.prefix + val.toLocaleString();
-            html += `<td>${val ?? '—'}</td>`;
-        });
-        if (isEditable) {
-            const puedeBorrar = isAdmin();
-            html += `<td>${puedeBorrar ? `<button class="btn btn-danger btn-sm" onclick="deleteOrder(${order.id})">Borrar</button>` : '—'}</td>`;
-        }
-        html += '</tr>';
-    });
-    container.innerHTML = html + '</tbody></table></div>';
-};
-
-// --- LÓGICA DE INDEX ---
-const initializeIndexPage = () => {
-    const orderForm = document.getElementById('orderForm');
-    if (!orderForm) return;
-
-    const inputs = ['precioVentaC', 'precioTotalUSD', 'costoEnvioUSD', 'cantUnidades'].map(id => document.getElementById(id));
-    const feedbackDiv = document.getElementById('feedbackGanancia');
-
-    const updateLiveFeedback = () => {
-        const [pVentaC, pTotalUSD, cEnvioUSD, unidades] = inputs.map(i => parseFloat(i.value) || 0);
-        if (pTotalUSD > 0 || cEnvioUSD > 0) {
-            const calc = calcularValoresFinancieros(pTotalUSD, cEnvioUSD, unidades || 1, pVentaC, TASA_REFERENCIA);
-            const color = calc.gananciaUnidadC > 0.01 ? '#10b981' : '#ef4444';
-            feedbackDiv.style.color = color;
-            feedbackDiv.innerHTML = `
-                <b>Gastos Totales:</b> $ ${calc.gastosTotalesUSD.toFixed(2)}<br>
-                <b>Costo Unitario:</b> C$ ${calc.costoUnidadC.toFixed(2)}<br>
-                <b>Ganancia Unidad:</b> C$ ${calc.gananciaUnidadC.toFixed(2)} <small>(referencial)</small>
-            `;
-        }
-    };
-
-    inputs.forEach(input => input.addEventListener('input', updateLiveFeedback));
-
-    orderForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const payload = {
-            nombre: document.getElementById('articulo').value,
-            unidad_medida: 'Paquete',
-            costo_shein_usd: parseFloat(inputs[1].value),
-            costo_envio_usd: parseFloat(inputs[2].value),
-            unidades: parseInt(inputs[3].value),
-            precio_venta_cordoba: parseFloat(inputs[0].value)
-        };
-
-        try {
-            await apiFetch('/articulos', { method: 'POST', body: JSON.stringify(payload) });
-            orderForm.reset();
-            feedbackDiv.innerHTML = 'Ingresa los datos para ver la ganancia.';
-            Swal.fire('Guardado', 'Artículo agregado correctamente', 'success');
-            cargarYRenderizarIndex();
-        } catch (err) {
-            Swal.fire('Error', err.message, 'error');
-        }
-    });
-
-    cargarYRenderizarIndex();
-};
-
-const cargarYRenderizarIndex = async () => {
     try {
-        const data = await apiFetch('/articulos');
-        renderTable(data, 'tableContainer', false);
-    } catch (err) {
-        document.getElementById('tableContainer').innerHTML =
-            `<p class="text-danger text-center p-3">No se pudo conectar con el servidor: ${err.message}</p>`;
-    }
-};
+        ultimosPedidos = await apiFetch('/pedidos');
+        container.innerHTML = '';
 
-// --- LÓGICA DE ADMIN ---
-let ultimosDatosAdmin = [];
+        if (ultimosPedidos.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center p-4 bg-light rounded-4 small fw-medium">No hay pedidos registrados aún.</p>';
+        } else {
+            ultimosPedidos.forEach(pedido => container.appendChild(pintarPedidoCard(pedido)));
+        }
 
-const cargarYRenderizarAdmin = async () => {
-    try {
-        ultimosDatosAdmin = await apiFetch('/articulos');
-        renderTable(ultimosDatosAdmin, 'dynamicContent', true);
         const downloadCard = document.getElementById('downloadCard');
-        if (downloadCard) downloadCard.style.display = ultimosDatosAdmin.length ? 'block' : 'none';
+        if (downloadCard) downloadCard.style.display = ultimosPedidos.length ? 'block' : 'none';
     } catch (err) {
-        document.getElementById('dynamicContent').innerHTML =
-            `<p class="text-danger text-center p-3">No se pudo conectar con el servidor: ${err.message}</p>`;
+        container.innerHTML = `<p class="text-danger text-center p-3">No se pudo conectar con el servidor: ${err.message}</p>`;
     }
 };
 
 const initializeNuevoUsuarioForm = () => {
     const container = document.getElementById('crearUsuarioContainer');
     if (!container) return;
-
-    // Solo un admin puede ver y usar el formulario de creación de usuarios
     if (!isAdmin()) return;
     container.style.display = 'block';
 
@@ -280,27 +372,39 @@ const initializeNuevoUsuarioForm = () => {
     });
 };
 
-const initializeAdminPage = () => {
-    if (!document.getElementById('dynamicContent')) return;
-    const btn = document.getElementById('downloadExcelBtn');
-    if (btn) btn.addEventListener('click', handleDownloadExcel);
-    cargarYRenderizarAdmin();
-    initializeNuevoUsuarioForm();
-};
-
 const handleDownloadExcel = () => {
-    if (ultimosDatosAdmin.length === 0) return alert('No hay datos.');
-    const ws = XLSX.utils.json_to_sheet(ultimosDatosAdmin);
+    if (ultimosPedidos.length === 0) return alert('No hay datos.');
+    const filas = ultimosPedidos.map(p => ({
+        Pedido: `#${String(p.id).padStart(3, '0')}`,
+        Proveedor: p.proveedor,
+        Fecha: p.fecha_pedido,
+        'Inversión Inicial': p.inversion_inicial,
+        'Ingresos Generados': p.ingresos_generados,
+        'Utilidad Neta': p.utilidad_neta,
+        '% Ganancia': p.porcentaje_ganancia,
+        Vendidos: p.cantidad_vendida_total,
+        Disponibles: p.cantidad_disponible_total,
+        'Agregado por': p.creado_por_usuario
+    }));
+    const ws = XLSX.utils.json_to_sheet(filas);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Pedidos");
-    XLSX.writeFile(wb, `Pedidos_SHEIN_${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.writeFile(wb, `Pedidos_AlessiaNic_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+const initializeAdminPage = () => {
+    if (!document.getElementById('pedidosContainer')) return;
+    const btn = document.getElementById('downloadExcelBtn');
+    if (btn) btn.addEventListener('click', handleDownloadExcel);
+    cargarYRenderizarPedidos();
+    initializeNuevoUsuarioForm();
 };
 
 // --- INICIO ---
 document.addEventListener('DOMContentLoaded', () => {
     initializeLoginPage();
 
-    if (!protegerPagina()) return; // corta la ejecución si redirige al login
+    if (!protegerPagina()) return;
 
     pintarUsuarioActivo();
     initializeIndexPage();
