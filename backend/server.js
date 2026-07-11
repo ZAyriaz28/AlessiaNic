@@ -14,8 +14,13 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      // Agregamos 'unsafe-inline' para los estilos y scripts en línea de tus HTML
+      scriptSrc: ["'self'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "'unsafe-inline'"],
+      // Agregamos estas fuentes para que Google Fonts cargue bien
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      // Permite la conexión a servidores externos para mapas de Bootstrap
+      connectSrc: ["'self'", "https://cdn.jsdelivr.net"] 
     },
   },
 }));
