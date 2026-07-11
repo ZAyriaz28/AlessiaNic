@@ -3,7 +3,7 @@
 // Modelo: Pedidos (Cargamentos) -> Productos -> Ventas
 // ===============================================================
 
-const API_BASE_URL = 'http://localhost:4000/api';
+const API_BASE_URL = '/api';
 
 const TOKEN_KEY = 'authToken';
 const USER_KEY = 'authUser';

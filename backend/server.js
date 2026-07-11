@@ -6,6 +6,9 @@ const authRoutes = require('./routes/auth');
 const pedidosRoutes = require('./routes/pedidos');
  
 const app = express();
+
+// Agrega esta línea para que Node sirva tus archivos HTML/CSS/JS
+app.use(express.static(path.join(__dirname, 'public')));
  
 app.use(cors());
 app.use(express.json());
