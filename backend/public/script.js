@@ -3,6 +3,8 @@
 // Modelo: Pedidos (Cargamentos) -> Productos -> Ventas
 // ===============================================================
 
+// Ruta relativa: funciona igual en local (node server.js) y en producción,
+// porque ahora el mismo servidor sirve el frontend y la API juntos.
 const API_BASE_URL = '/api';
 
 const TOKEN_KEY = 'authToken';
@@ -54,7 +56,9 @@ const apiFetch = async (path, options = {}) => {
     const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
     const data = await res.json().catch(() => ({}));
 
-    if (res.status === 401) {
+    // "Sesión expirada" solo aplica a peticiones que YA llevaban un token.
+    // Si es el propio login (sin token) fallando, es contraseña incorrecta, no expiración.
+    if (res.status === 401 && token) {
         cerrarSesion();
         throw new Error('Tu sesión expiró, inicia sesión de nuevo.');
     }
