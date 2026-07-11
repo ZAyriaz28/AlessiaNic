@@ -1,25 +1,40 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
- 
+const path = require('path');
+const helmet = require('helmet'); // Importación necesaria
+
 const authRoutes = require('./routes/auth');
 const pedidosRoutes = require('./routes/pedidos');
- 
+
 const app = express();
 
-// Agrega esta línea para que Node sirva tus archivos HTML/CSS/JS
-app.use(express.static(path.join(__dirname, 'public')));
- 
+// Configuración de seguridad con Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "https://cdn.jsdelivr.net"],
+    },
+  },
+}));
+
+// Middlewares
 app.use(cors());
 app.use(express.json());
- 
+
+// Servir archivos estáticos desde la carpeta 'public'
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/pedidos', pedidosRoutes);
- 
+
+// Ruta de salud
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
- 
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-    console.log(`API Alessia Nic corriendo en http://localhost:${PORT}`);
+    console.log(`API Alessia Nic corriendo en el puerto ${PORT}`);
 });
- 
