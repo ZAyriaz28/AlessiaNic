@@ -1,51 +1,67 @@
-# Backend Alessia Nic (Node.js + Express + MySQL)
+# Alessia Nic — App unificada (Frontend + Backend + MySQL)
 
-## 1. Requisitos
-- Laragon corriendo, con MySQL activo.
-- La base de datos `alessia_nic` ya creada (con `alessia_nic_schema.sql` en MySQL Workbench).
+Este proyecto ahora es **un solo servidor**: Express sirve tanto la API
+(`/api/...`) como las páginas del frontend (`login.html`, `index.html`,
+`admin.html`) desde la carpeta `public/`. Esto simplifica tanto el
+desarrollo local como el despliegue en internet — un solo link, sin
+problemas de CORS entre dominios distintos.
 
-## 2. Instalación
+## Desarrollo local (ya NO necesitas Laragon para el frontend)
 ```bash
 cd backend
 npm install
+cp .env.example .env   # ajusta tus datos de MySQL
+npm run seed:admin      # crea tu usuario admin
+node server.js
 ```
+Abre **http://localhost:4000** directamente — ahí verás `index.html`
+servido por el mismo Node. Laragon solo lo necesitas encendido para
+que MySQL esté corriendo (no para servir archivos).
 
-## 3. Configurar variables de entorno
-Copia `.env.example` a `.env` y ajusta los datos según tu Laragon
-(normalmente `DB_USER=root` y `DB_PASSWORD` vacío por defecto):
-```bash
-cp .env.example .env
-```
+## Desplegar en internet (Railway)
 
-## 4. Crear el usuario administrador real
-El schema.sql trae un usuario "admin" de ejemplo con una contraseña falsa.
-Bórralo y genera uno real así:
-```sql
--- En MySQL Workbench:
-DELETE FROM usuarios WHERE nombre_usuario = 'admin';
-```
-```bash
-# En la terminal, dentro de /backend:
-npm run seed:admin
-```
-Esto lee `SEED_ADMIN_USER` y `SEED_ADMIN_PASSWORD` de tu `.env` y crea
-el admin con la contraseña correctamente encriptada.
+Railway puede alojar tu app Node.js Y tu base de datos MySQL juntos,
+con un plan de prueba gratuito. Pasos generales (te guío paso a paso
+cuando lo hagamos juntos):
 
-## 5. Levantar la API
-```bash
-npm run dev
-```
-La API quedará en `http://localhost:4000`.
+1. **Sube este proyecto a tu repositorio de GitHub**
+   (`ZAyriaz28/AlessiaNic`) — todo el contenido de esta carpeta
+   `backend/` (incluyendo `public/`), pero SIN subir `node_modules/`
+   ni `.env` (ya están en `.gitignore`).
 
-## 6. Endpoints disponibles
-| Método | Ruta                  | Auth        | Descripción                       |
-|--------|-----------------------|-------------|------------------------------------|
-| POST   | /api/auth/login       | No          | Login, devuelve un token           |
-| GET    | /api/articulos        | No          | Lista todos los artículos          |
-| POST   | /api/articulos        | No          | Crea un artículo nuevo             |
-| DELETE | /api/articulos/:id    | Sí (admin)  | Elimina un artículo                |
+2. **Crea cuenta en railway.app** e inicia un nuevo proyecto
+   conectado a tu repo de GitHub.
 
-## 7. Siguiente paso
-Falta conectar `script.js` (el frontend) para que en vez de usar
-`localStorage`, haga `fetch()` a estos endpoints. Es el siguiente paso
-que veremos juntos.
+3. **Agrega un servicio de MySQL** dentro del mismo proyecto de
+   Railway (botón "New" → "Database" → "MySQL"). Railway te da
+   automáticamente host, usuario, contraseña y puerto.
+
+4. **Corre la migración** (`migration_pedidos.sql`) contra esa base
+   de datos de Railway usando MySQL Workbench (te conectas con los
+   datos de conexión que te da Railway, no `localhost`).
+
+5. **Configura las variables de entorno** en Railway (pestaña
+   "Variables" del servicio Node), copiando los nombres de tu
+   `.env.example`, pero con los valores reales que te dio Railway
+   para `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, más tu propio
+   `JWT_SECRET` (una clave larga inventada).
+
+6. **Railway te da un link público** (algo como
+   `https://alessianic-production.up.railway.app`) — ese es el link
+   que compartes con tu segunda persona.
+
+7. **Crea el usuario admin en producción** corriendo
+   `npm run seed:admin` desde la consola de Railway (o ajustando
+   temporalmente las variables `SEED_ADMIN_USER`/`SEED_ADMIN_PASSWORD`
+   ahí y ejecutando el script una vez).
+
+## Endpoints disponibles
+| Método | Ruta                              | Auth        | Descripción                    |
+|--------|------------------------------------|-------------|----------------------------------|
+| POST   | /api/auth/login                    | No          | Login, devuelve un token         |
+| POST   | /api/auth/register                 | Admin       | Crea un nuevo usuario            |
+| GET    | /api/pedidos                       | Sí          | Lista pedidos con resumen        |
+| GET    | /api/pedidos/:id                   | Sí          | Detalle de un pedido             |
+| POST   | /api/pedidos                       | Sí          | Crea un pedido con productos     |
+| DELETE | /api/pedidos/:id                   | Admin       | Elimina un pedido                |
+| POST   | /api/pedidos/productos/:id/venta   | Sí          | Registra una venta               |

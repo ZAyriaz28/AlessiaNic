@@ -20,7 +20,7 @@ app.use(helmet({
       // Agregamos estas fuentes para que Google Fonts cargue bien
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       // Permite la conexión a servidores externos para mapas de Bootstrap
-      connectSrc: ["'self'", "https://cdn.jsdelivr.net"] 
+      connectSrc: ["'self'", "https://cdn.jsdelivr.net"]
     },
   },
 }));
